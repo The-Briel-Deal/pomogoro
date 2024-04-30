@@ -2,59 +2,52 @@ package main
 
 import "fmt"
 import "os"
-import "os/exec"
 import "time"
 
+import "github.com/charmbracelet/bubbles/timer"
 import tea "github.com/charmbracelet/bubbletea"
 
+const timeout = time.Second * 5
+
 type model struct {
-	tick      *time.Ticker
-	startTime time.Time
+	timer timer.Model
 }
 
 func initialModel() model {
 	return model{
-		tick:      time.NewTicker(time.Millisecond * 30),
-		startTime: time.Now(),
+		timer: timer.NewWithInterval(timeout, time.Millisecond),
 	}
 }
 
 func (m model) Init() tea.Cmd {
-	return nil
+	return m.timer.Init()
 }
 
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.KeyMsg:
-		switch msg.String() {
-		case "q":
-			return m, tea.Quit
-		}
+	case timer.TickMsg:
+		var cmd tea.Cmd
+		m.timer, cmd = m.timer.Update(msg)
+		return m, cmd
 	}
 	return m, nil
 }
 
 func (m model) View() string {
-	s := "The time is\n"
+	s := m.timer.View()
 
-	s += fmt.Sprintf("I'm ticking at: ", m.tick.Sub(startTime))
+	if m.timer.Timedout() {
+		s = "All done!"
+	}
+	s += "\n"
+	return s
 }
 
 func main() {
-	//	go func() {
-	//		for {
-	//			mainLoop(<-tick.C, startTime)
-	//		}
-	//	}()
-	time.Sleep(time.Minute)
-}
+	m := initialModel()
+	if _, err := tea.NewProgram(m).Run(); err != nil {
 
-func mainLoop(tickTime time.Time, startTime time.Time) {
-	cmd := exec.Command("clear")
-	cmd.Stdout = os.Stdout
-	err := cmd.Run()
-	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("Uh oh, we encountered an error:", err)
+		os.Exit(1)
 	}
-	fmt.Println("I'm ticking at: ", tickTime.Sub(startTime))
 }
